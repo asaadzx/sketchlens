@@ -22,12 +22,39 @@ align it by eye.
 That solves the actual problem — *what will this look like on the wall before I paint it?* — without
 pretending to be SLAM.
 
-1. Open the camera
+1. Pick a size profile and calibrate against a real reference (see below)
 2. Search, paste a link, or upload an image
-3. Drag to move, pinch to size, twist to angle
+3. Drag to move, pinch to size, twist to angle — or type an exact real width
 4. Drop the opacity until the line reads without the photo fighting you
 5. Lock it, enter trace mode, and trace on the plaster
 6. Optionally snap a reference photo or copy a share link
+
+## Scale and calibration
+
+Without a reference, a browser can only guess how big something should be. Calibration fixes that.
+You tell the app the real width of an object on the wall, and it works out how many screen pixels
+make a millimetre at that distance.
+
+The formula is the same in every mode:
+
+```
+pxPerMm = on-screen reference width (px) / real reference width (mm)
+```
+
+Pick the profile that matches your job, frame the reference, stretch the box over it, and press
+**Use this scale**. The overlay then reports its real width on the wall, and you can drag it or type
+an exact size (`210`, `21cm`, `1.4m`).
+
+| Profile | Reference | Typical target |
+| --- | --- | --- |
+| A4 paper | one A4 sheet (210 mm) | paper-sized art |
+| Paper (generic) | any rectangle you measure | custom sizes |
+| Small wall | metre rule or two A4 sheets (594 mm) | roughly 1–2 m |
+| Big wall | one A4 sheet, stepped back | 3–5 m and beyond |
+
+Calibration is only valid while the phone stays at the same distance and angle, so the app warns
+when it matters and reminds you to lock the overlay. Big-wall projections also warn when the source
+image does not have enough resolution to look sharp at that size.
 
 ## Gestures
 
@@ -50,12 +77,16 @@ A share link encodes the whole setup, so the person receiving it sees the same i
 apparent size and angle:
 
 ```
-?img=<url>&w=<px>&h=<px>&x=<0..1>&y=<0..1>&size=<0..1>&rot=<deg>&op=<0..1>
+?img=<url>&w=<px>&h=<px>&x=<0..1>&y=<0..1>&size=<0..1>&rot=<deg>&op=<0..1>&mm=<width>&mode=<id>
 ```
 
 Size is stored as a fraction of the viewport's shorter edge rather than in pixels, so a link made on
 a phone lands at the same relative size on a laptop. No backend is involved: the only thing needed
 is a public image URL.
+
+A calibrated link also carries the intended real width (`mm`) and profile (`mode`). The sender's
+`px/mm` cannot travel — it belongs to their screen and holding distance — so the recipient
+re-calibrates on their own device and the overlay snaps to the shared real size.
 
 Uploaded images use `blob:` URLs and cannot be shared in v1. That is a real limitation, not an
 oversight — hosting them would mean a backend, and base64-in-URL does not survive contact with a
@@ -63,9 +94,10 @@ real image.
 
 ## Images
 
-Search runs through [Openverse](https://openverse.org/), filtered to licences that allow
-commercial use and modification. It needs no API key, unlike Unsplash, and it serves CORS headers
-so results can be drawn onto a canvas for the photo capture.
+Search runs through [Openverse](https://openverse.org/) and [Wikimedia Commons](https://commons.wikimedia.org/),
+filtered to licences that allow commercial use and modification. Both need no API key, unlike
+Unsplash, and they serve CORS headers so results can be drawn onto a canvas for the photo capture.
+Commons is queried in parallel as a fallback when Openverse returns little or nothing.
 
 Credit is displayed on screen and travels in the share link.
 
@@ -78,7 +110,8 @@ React 19, Vite 8, Tailwind CSS 4, Lucide icons, TypeScript. Camera via plain
 npm install
 npm run dev        # dev server (HTTPS or localhost for camera)
 npm run build      # typecheck + production build
-npm run lint       # oxlint
+npm run lint       # eslint
+npm test           # vitest (overlay, calibration and share logic)
 npm run preview
 ```
 
@@ -90,8 +123,10 @@ Search queries go to Openverse; everything else stays local.
 ## Honest limits
 
 - No wall detection. The overlay moves with the phone, so keep still or prop the phone up.
-- No physical calibration. Scale is judged by eye. Drop a sheet of A4 on the wall and line up
-  against that if you need an exact size.
+- Calibration is only valid while the phone stays at the same distance and angle. Move and the
+  reported size is wrong; re-calibrate or lock the overlay.
+- Calibration accuracy depends on how carefully you frame the reference. A half-pixel finger wobble
+  at a small reference is a real millimetre error, so the app shows a precision readout.
 - Share links need a public image URL, so uploads are excluded.
 - One image at a time, no layers.
 

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import {
   Camera,
   Check,
@@ -10,6 +11,7 @@ import {
   MoveHorizontal,
   PenTool,
   RotateCcw,
+  Ruler,
   Share2,
   SlidersHorizontal,
 } from 'lucide-react'
@@ -31,6 +33,13 @@ export interface ControlProps {
   onCapture: () => void
   onShare: () => void
   onReset: () => void
+  /** Larger modes get larger hit areas, since the phone is further away. */
+  targetSize?: number
+  modeLabel?: string
+  /** Re-enter the calibration flow, e.g. after the wall setup changed. */
+  recalibrate?: () => void
+  /** Real-world size field plus resolution warning, shown once calibrated. */
+  sizeControls?: ReactNode
 }
 
 export function ControlBar(props: ControlProps) {
@@ -51,6 +60,13 @@ export function ControlBar(props: ControlProps) {
             hint={`${Math.round(opacity * 100)}%`}
             icon={<Eye className="size-3.5" strokeWidth={2} />}
           />
+          {props.sizeControls}
+        </div>
+      ) : null}
+
+      {hasOverlay && visible && locked && !trace && props.sizeControls ? (
+        <div className="animate-rise w-full max-w-md rounded-2xl border border-line bg-card/94 p-3 shadow-[0_10px_30px_rgb(33_28_23/0.16)] backdrop-blur-md">
+          {props.sizeControls}
         </div>
       ) : null}
 
@@ -61,6 +77,15 @@ export function ControlBar(props: ControlProps) {
           <IconButton label="Choose a different image" onClick={props.onOpenSource} tone="cream">
             <ImagePlus className="size-5" strokeWidth={1.75} />
           </IconButton>
+          {props.recalibrate ? (
+            <IconButton
+              label={`Change scale (${props.modeLabel ?? 'mode'})`}
+              onClick={props.recalibrate}
+              tone="cream"
+            >
+              <Ruler className="size-5" strokeWidth={1.75} />
+            </IconButton>
+          ) : null}
           <IconButton
             label="Reset position"
             onClick={props.onReset}

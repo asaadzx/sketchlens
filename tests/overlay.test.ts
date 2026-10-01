@@ -190,6 +190,23 @@ describe('share encoding', () => {
     })
   })
 
+  it('carries a physical target and mode but not local px/mm', () => {
+    const state = { overlay: base(), visible: true, trace: false, locked: false }
+    const query = encodeState(state, { targetMm: 172.4, modeId: 'big-wall' })
+    expect(query).toContain('mm=172')
+    expect(query).toContain('mode=big-wall')
+    const decoded = decodeState(query)
+    expect(decoded?.targetMm).toBe(172)
+    expect(decoded?.modeId).toBe('big-wall')
+  })
+
+  it('omits and ignores an out-of-range or unknown target', () => {
+    const state = { overlay: base(), visible: true, trace: false, locked: false }
+    const decoded = decodeState(`${encodeState(state)}&mm=5&mode=nope`)
+    expect(decoded?.targetMm).toBeUndefined()
+    expect(decoded?.modeId).toBeUndefined()
+  })
+
   it('preserves trace mode and the hidden flag', () => {
     const query = encodeState({
       overlay: base(),

@@ -1,10 +1,15 @@
-import { Ban, Hand, Lock, PenTool, Ruler, ZoomIn } from 'lucide-react'
+import { Ban, Hand, Lock, PenTool, Ruler, ScanLine, ZoomIn } from 'lucide-react'
 import { Panel } from './ui'
 
 const STEPS = [
   {
+    icon: ScanLine,
+    title: 'Calibrate against something real',
+    body: 'Pick a mode, frame the reference, and stretch the box onto it. An A4 sheet gives you exact paper sizes; a metre rule or any known rectangle handles walls.',
+  },
+  {
     icon: Hand,
-    title: 'Line it up by eye',
+    title: 'Line it up',
     body: 'One finger drags. Two fingers pinch and rotate. On a desktop, scroll to zoom and hold shift while scrolling to rotate.',
   },
   {
@@ -24,7 +29,13 @@ const STEPS = [
   },
 ]
 
-export function InfoPanel({ onClose }: { onClose: () => void }) {
+export function InfoPanel({
+  onClose,
+  onRecalibrate,
+}: {
+  onClose: () => void
+  onRecalibrate: () => void
+}) {
   return (
     <Panel title="How SketchLens works" onClose={onClose}>
       <div className="space-y-4 pb-1">
@@ -50,10 +61,19 @@ export function InfoPanel({ onClose }: { onClose: () => void }) {
             About the sizing
           </p>
           <p className="mt-1.5 text-sm leading-relaxed text-ink-soft">
-            A browser cannot measure the real wall, so scale here is judged by eye. If you need an
-            exact size, drop a sheet of A4 paper on the wall first, line it up with the paper, then
-            use it as your reference.
+            In setup you calibrate against something you can measure: an A4 sheet, a metre rule, or
+            any flat rectangle whose width you know. The app divides the on-screen width by the real
+            width, so it can tell you the overlay is 60 cm wide, not just how many pixels across it
+            is.
           </p>
+          <button
+            type="button"
+            onClick={onRecalibrate}
+            className="mt-3 inline-flex items-center gap-2 rounded-full bg-clay px-4 py-2.5 text-sm font-semibold text-cream transition hover:bg-clay-deep"
+          >
+            <Ruler className="size-4" strokeWidth={2} />
+            Set the scale again
+          </button>
         </div>
 
         <div className="rounded-2xl border border-line bg-shell/70 p-4">
@@ -63,7 +83,8 @@ export function InfoPanel({ onClose }: { onClose: () => void }) {
           </p>
           <p className="mt-1.5 text-sm leading-relaxed text-ink-soft">
             SketchLens does not detect the wall. Nothing is locked in 3D space, so if you move the
-            phone the overlay moves with it. Keep still, or lock the overlay and prop the phone up.
+            phone the overlay moves with it, and the calibrated size stops being true. Keep still,
+            or lock the overlay and prop the phone up.
           </p>
         </div>
 

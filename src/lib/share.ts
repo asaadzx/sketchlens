@@ -1,12 +1,28 @@
 import type { OverlayState, WorkState } from './types'
 import { MAX_SIZE, MIN_OPACITY, MAX_OPACITY, MIN_SIZE, clamp } from './types'
 import { roundTo } from './overlay'
+import { MODE_IDS, type ModeId } from './modes'
+
+/**
+ * The sender's screen calibration cannot travel, but the physical target can.
+ * A link carries the intended real width and the mode so the recipient knows
+ * what to calibrate against.
+ */
+export interface SharedTarget {
+  targetMm: number
+  modeId: ModeId
+}
+
+export interface SharedState extends Partial<WorkState> {
+  targetMm?: number
+  modeId?: ModeId
+}
 
 /**
  * Share links carry the whole setup as query params, so no backend is needed
  * for anything that has a public URL.
  */
-export function encodeState(state: WorkState): string {
+export function encodeState(state: WorkState, target?: SharedTarget | null): string {
   const overlay = state.overlay
   if (!overlay || !overlay.shareable) return ''
   const params = new URLSearchParams()
@@ -21,6 +37,10 @@ export function encodeState(state: WorkState): string {
   params.set('op', String(roundTo(overlay.opacity, 3)))
   if (!state.visible) params.set('hide', '1')
   if (state.trace) params.set('trace', '1')
+  if (target && target.targetMm > 0) {
+    params.set('mm', String(Math.round(target.targetMm)))
+    params.set('mode', target.modeId)
+  }
   return params.toString()
 }
 
@@ -31,7 +51,7 @@ function num(params: URLSearchParams, key: string, fallback: number): number {
   return Number.isFinite(value) ? value : fallback
 }
 
-export function decodeState(search: string): Partial<WorkState> | null {
+export function decodeState(search: string): SharedState | null {
   const params = new URLSearchParams(search)
   const src = params.get('img')
   if (!src) return null
@@ -49,16 +69,21 @@ export function decodeState(search: string): Partial<WorkState> | null {
     shareable: true,
   }
 
+  const mode = params.get('mode')
+  const mm = num(params, 'mm', 0)
+
   return {
     overlay,
     visible: params.get('hide') !== '1',
     trace: params.get('trace') === '1',
     locked: true,
+    targetMm: mm >= 20 && mm <= 20000 ? mm : undefined,
+    modeId: MODE_IDS.includes(mode as ModeId) ? (mode as ModeId) : undefined,
   }
 }
 
-export function buildShareUrl(state: WorkState): string {
-  const query = encodeState(state)
+export function buildShareUrl(state: WorkState, target?: SharedTarget | null): string {
+  const query = encodeState(state, target)
   const url = new URL(window.location.href)
   url.search = query
   url.hash = ''
