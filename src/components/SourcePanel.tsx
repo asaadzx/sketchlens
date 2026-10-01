@@ -53,14 +53,13 @@ function SearchTab({ onPick, busy }: { onPick: (picked: PickedImage) => void; bu
   const [message, setMessage] = useState('')
   const controller = useRef<AbortController | null>(null)
 
+  const term = query.trim()
+
+  // Derive the "not searching yet" view instead of resetting it from an effect.
+  const short = term.length < 3
+
   useEffect(() => {
-    const term = query.trim()
-    if (term.length < 3) {
-      controller.current?.abort()
-      setResults([])
-      setStatus('idle')
-      return
-    }
+    if (short) return
 
     const timer = window.setTimeout(async () => {
       controller.current?.abort()
@@ -69,6 +68,7 @@ function SearchTab({ onPick, busy }: { onPick: (picked: PickedImage) => void; bu
       setStatus('loading')
       try {
         const found = await searchImages(term, next.signal)
+        if (next.signal.aborted) return
         setResults(found)
         setStatus('done')
         setMessage(found.length === 0 ? 'Nothing matched. Try a simpler word.' : '')
@@ -80,7 +80,7 @@ function SearchTab({ onPick, busy }: { onPick: (picked: PickedImage) => void; bu
     }, 420)
 
     return () => window.clearTimeout(timer)
-  }, [query])
+  }, [term, short])
 
   useEffect(() => () => controller.current?.abort(), [])
 
@@ -100,7 +100,12 @@ function SearchTab({ onPick, busy }: { onPick: (picked: PickedImage) => void; bu
         {query ? (
           <button
             type="button"
-            onClick={() => setQuery('')}
+            onClick={() => {
+              setQuery('')
+              setResults([])
+              setStatus('idle')
+              setMessage('')
+            }}
             aria-label="Clear search"
             className="text-ink-faint hover:text-ink"
           >
@@ -129,10 +134,10 @@ function SearchTab({ onPick, busy }: { onPick: (picked: PickedImage) => void; bu
 
       {message ? <p className="text-sm text-clay-deep">{message}</p> : null}
 
-      {results.length > 0 ? (
+      {!short && results.length > 0 ? (
         <>
           <p className="text-xs text-ink-faint">
-            {results.length} results · Openverse, commercial use and modification allowed
+            {results.length} results · {SOURCE_LABEL}, commercial use and modification allowed
           </p>
           <ul className="grid grid-cols-3 gap-2">
             {results.map((result) => (

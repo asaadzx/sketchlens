@@ -32,7 +32,12 @@ const GUIDES = [33.333, 66.666]
 export default function App() {
   const viewport = useViewport()
   const camera = useCamera()
-  const [state, setState] = useState<WorkState>(EMPTY)
+  /* A shared link carries the whole setup, so seed the initial state from the
+     query string instead of patching it in after the first paint. */
+  const [state, setState] = useState<WorkState>(() => {
+    const incoming = decodeState(window.location.search)
+    return incoming?.overlay ? { ...EMPTY, ...incoming } : EMPTY
+  })
   const [sheet, setSheet] = useState<Sheet>('none')
   const [toast, setToast] = useState<{ message: string; tone: 'ok' | 'warn' } | null>(null)
   const [shared, setShared] = useState(false)
@@ -59,18 +64,6 @@ export default function App() {
     return () => window.clearTimeout(timer)
   }, [toast])
 
-  /* A shared link carries the whole setup, so honour it once the viewport is
-     measured and the overlay can be sized against it. */
-  const hydrated = useRef(false)
-  useEffect(() => {
-    if (hydrated.current) return
-    const incoming = decodeState(window.location.search)
-    if (incoming?.overlay) {
-      hydrated.current = true
-      setState({ ...EMPTY, ...incoming })
-    }
-  }, [])
-
   useEffect(
     () => () => {
       if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
@@ -79,22 +72,21 @@ export default function App() {
   )
 
   /* Probe the source image once: the gesture maths needs its true pixel size and
-     the canvas capture needs a decoded, CORS-clean copy. */
+     the canvas capture needs a decoded, CORS-clean copy. All setState happens in
+     the load callbacks, never synchronously in the effect body. */
   const src = overlay?.src
   useEffect(() => {
-    if (!src) {
-      setImage(null)
-      setLoadingImage(false)
-      return
-    }
+    if (!src) return
 
     let cancelled = false
-    setLoadingImage(true)
+    const finish = () => {
+      if (!cancelled) setLoadingImage(false)
+    }
 
     const adopt = (probe: HTMLImageElement) => {
       if (cancelled) return
       setImage(probe)
-      setLoadingImage(false)
+      finish()
       setState((previous) => {
         const current = previous.overlay
         if (
@@ -123,8 +115,7 @@ export default function App() {
       plain.referrerPolicy = 'no-referrer'
       plain.onload = () => adopt(plain)
       plain.onerror = () => {
-        if (cancelled) return
-        setLoadingImage(false)
+        finish()
         if (!src.startsWith('blob:')) flash('That image could not be loaded.', 'warn')
       }
       plain.src = src

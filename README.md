@@ -9,8 +9,8 @@ until it looks right, then lock it and trace the outline. No account, no install
 
 ## Try it
 
-[sketchlens.app](https://sketchlens.app) — add to home screen on Android, or via Share → Add to
-Home Screen on iOS.
+**[sketchlens-iota.vercel.app](https://sketchlens-iota.vercel.app)** — open the link and it works.
+Add to home screen on Android, or Share → Add to Home Screen on iOS.
 
 ## How it works
 
