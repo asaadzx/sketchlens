@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { ExternalLink, ImagePlus, Link2, Loader2, Search, Upload, X } from 'lucide-react'
-import { SUGGESTIONS, formatAttribution, searchImages, type SearchResult } from '../lib/search'
+import {
+  SOURCE_LABEL,
+  SUGGESTIONS,
+  formatAttribution,
+  searchImages,
+  type SearchResult,
+} from '../lib/search'
 import { Panel, Segmented } from './ui'
 
 type Tab = 'search' | 'link' | 'upload'

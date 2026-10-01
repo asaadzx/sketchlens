@@ -1,26 +1,63 @@
+import { useEffect, useRef } from 'react'
 import { Aperture, CameraOff, RotateCw, SwitchCamera } from 'lucide-react'
 import type { CameraState } from '../hooks/useCamera'
 
+/**
+ * The <video> is mounted permanently, including behind the permission gate.
+ * Rendering it conditionally meant the stream had nowhere to attach on the
+ * first start, so the preview stayed black on iOS and desktop.
+ */
 export function CameraFeed({
-  video,
+  stream,
   camera,
   trace,
+  onVideo,
 }: {
-  video: React.RefObject<HTMLVideoElement | null>
+  stream: MediaStream | null
   camera: CameraState
   trace: boolean
+  onVideo: (element: HTMLVideoElement | null) => void
 }) {
+  const localRef = useRef<HTMLVideoElement | null>(null)
+
+  useEffect(() => {
+    const element = localRef.current
+    if (!element) return
+    onVideo(element)
+
+    if (element.srcObject !== stream) {
+      element.srcObject = stream
+    }
+    if (stream && element.paused) {
+      // Muted + playsInline means autoplay is allowed, but Safari can still
+      // reject until the element has metadata, so retry on canplay.
+      void element.play().catch(() => undefined)
+    }
+    if (!stream) {
+      element.removeAttribute('src')
+      element.load()
+    }
+  }, [stream, onVideo])
+
   return (
     <video
-      ref={video}
+      ref={localRef}
       playsInline
       muted
       autoPlay
+      disablePictureInPicture
       aria-hidden
-      className="absolute inset-0 size-full object-cover transition-[filter] duration-300"
+      tabIndex={-1}
+      className={`absolute inset-0 size-full object-cover transition-opacity duration-300 ${
+        stream ? 'opacity-100' : 'opacity-0'
+      }`}
       style={{
         filter: trace ? 'brightness(0.82) saturate(0.85)' : 'none',
         transform: camera.facing === 'user' ? 'scaleX(-1)' : 'none',
+      }}
+      onCanPlay={() => {
+        const element = localRef.current
+        if (element && stream && element.paused) void element.play().catch(() => undefined)
       }}
     />
   )
@@ -31,14 +68,17 @@ export function CameraGate({
   error,
   hasImage,
   onStart,
+  onContinue,
 }: {
   status: CameraState['status']
   error: string
   hasImage: boolean
   onStart: () => void
+  onContinue: () => void
 }) {
   const denied = status === 'denied' || status === 'error'
   const waiting = status === 'requesting'
+  const unavailable = status === 'missing' || status === 'denied' || status === 'error'
 
   return (
     <div className="absolute inset-0 z-50 flex items-end justify-center bg-char">
@@ -57,7 +97,7 @@ export function CameraGate({
         </div>
 
         {denied ? (
-          <p className="rounded-2xl border border-clay/40 bg-clay/15 px-4 py-3 text-sm leading-relaxed text-cream/85">
+          <p className="w-full rounded-2xl border border-clay/40 bg-clay/15 px-4 py-3 text-sm leading-relaxed text-cream/85">
             {error}
           </p>
         ) : null}
@@ -79,11 +119,15 @@ export function CameraGate({
             )}
           </button>
 
-          {hasImage ? (
-            <p className="flex items-center justify-center gap-2 text-sm text-cream/50">
+          {(hasImage || unavailable) ? (
+            <button
+              type="button"
+              onClick={onContinue}
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-cream/20 px-5 py-3 text-sm font-semibold text-cream/80 transition hover:bg-cream/10 hover:text-cream"
+            >
               <CameraOff className="size-4" strokeWidth={1.75} />
-              Or continue with the setup from this link
-            </p>
+              {hasImage ? 'Continue with the shared setup' : 'Skip camera and pick an image'}
+            </button>
           ) : null}
         </div>
       </div>

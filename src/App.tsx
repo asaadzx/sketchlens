@@ -44,8 +44,10 @@ export default function App() {
   const [loadingImage, setLoadingImage] = useState(false)
   const [stage, setStage] = useState<HTMLDivElement | null>(null)
   const [image, setImage] = useState<HTMLImageElement | null>(null)
+  const [video, setVideo] = useState<HTMLVideoElement | null>(null)
+  /* Lets someone without a working camera still use the overlay on a photo. */
+  const [skipped, setSkipped] = useState(false)
 
-  const videoRef = useRef<HTMLVideoElement | null>(null)
   const objectUrlRef = useRef<string | null>(null)
   const stateRef = useRef(state)
   useEffect(() => {
@@ -244,7 +246,7 @@ export default function App() {
   const capture = useCallback(async () => {
     if (!overlay) return
     const blob = await captureFrame({
-      video: videoRef.current,
+      video,
       image,
       pixel: toPixel(overlay, viewport.width, viewport.height),
       stageW: viewport.width,
@@ -263,7 +265,7 @@ export default function App() {
     anchor.click()
     setTimeout(() => URL.revokeObjectURL(url), 5000)
     flash('Photo saved')
-  }, [overlay, image, viewport.width, viewport.height, state.trace, flash])
+  }, [overlay, image, video, viewport.width, viewport.height, state.trace, flash])
 
   const hasOverlay = Boolean(overlay)
   const cameraLive = camera.status === 'live'
@@ -271,11 +273,14 @@ export default function App() {
   return (
     <div className="relative h-full w-full overflow-hidden bg-char text-cream">
       <div ref={setStage} className="no-touch absolute inset-0 select-none overflow-hidden">
-        {cameraLive ? (
-          <CameraFeed video={videoRef} camera={camera} trace={state.trace} />
-        ) : (
-          <div className="absolute inset-0 bg-[radial-gradient(120%_90%_at_50%_0%,#3b3229_0%,#14110e_72%)]" />
-        )}
+        {/* Always mounted so the stream has an element to attach to, even
+            before the permission gate is dismissed. */}
+        <CameraFeed
+          stream={camera.stream}
+          camera={camera}
+          trace={state.trace}
+          onVideo={setVideo}
+        />
 
         {state.trace ? (
           <>
@@ -364,12 +369,13 @@ export default function App() {
 
       {toast ? <Toast message={toast.message} tone={toast.tone} /> : null}
 
-      {cameraLive ? null : (
+      {cameraLive || skipped ? null : (
         <CameraGate
           status={camera.status}
           error={camera.error}
           hasImage={hasOverlay}
           onStart={() => void camera.start()}
+          onContinue={() => setSkipped(true)}
         />
       )}
     </div>

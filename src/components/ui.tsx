@@ -123,8 +123,10 @@ export function Panel({
   children: ReactNode
 }) {
   return (
-    <div className="absolute inset-x-0 bottom-0 z-30 flex max-h-[78%] flex-col justify-end">
-      <div className="animate-rise rounded-t-3xl border-t border-line bg-cream/97 shadow-[0_-12px_40px_rgb(33_28_23/0.18)] backdrop-blur-xl">
+    <div className="absolute inset-x-0 bottom-0 z-30 flex max-h-[min(78%,42rem)] flex-col justify-end">
+      {/* min-h-0 lets this shrink to the sheet's max height so the scroll area
+          below it actually scrolls instead of overflowing off the top. */}
+      <div className="animate-rise flex min-h-0 flex-col rounded-t-3xl border-t border-line bg-cream/97 shadow-[0_-12px_40px_rgb(33_28_23/0.18)] backdrop-blur-xl">
         <div className="flex items-center justify-between px-5 pt-4 pb-3">
           <h2 className="text-base font-semibold tracking-tight">{title}</h2>
           <button

@@ -7,30 +7,42 @@ export interface CameraState {
   error: string
   facing: 'environment' | 'user'
   hasMultiple: boolean
-  start: (facing?: 'environment' | 'user') => void | Promise<void>
+  /** The active stream, held in state so the <video> can sync to it. */
+  stream: MediaStream | null
+  start: (facing?: 'environment' | 'user') => void
   flip: () => void
 }
 
 const MESSAGES: Record<string, string> = {
   NotAllowedError:
     'Camera access was blocked. Allow the camera for this site in your browser settings, then try again.',
+  PermissionDeniedError:
+    'Camera access was blocked. Allow the camera for this site in your browser settings, then try again.',
   NotFoundError: 'No camera was found on this device.',
+  DevicesNotFoundError: 'No camera was found on this device.',
   NotReadableError: 'Another app is already using the camera. Close it and try again.',
+  TrackStartError: 'Another app is already using the camera. Close it and try again.',
   OverconstrainedError: 'This camera cannot provide the requested video mode.',
   SecurityError: 'The browser blocked the camera. A secure (https) connection is required.',
 }
 
+function describe(cause: unknown): string {
+  const name = cause instanceof DOMException ? cause.name : ''
+  return MESSAGES[name] ?? 'The camera could not be started.'
+}
+
 export function useCamera(): CameraState {
-  const videoRef = useRef<HTMLVideoElement | null>(null)
-  const streamRef = useRef<MediaStream | null>(null)
+  const [stream, setStream] = useState<MediaStream | null>(null)
   const [status, setStatus] = useState<CameraStatus>('idle')
   const [error, setError] = useState('')
   const [facing, setFacing] = useState<'environment' | 'user'>('environment')
   const [hasMultiple, setHasMultiple] = useState(false)
+  const streamRef = useRef<MediaStream | null>(null)
 
   const stop = useCallback(() => {
     streamRef.current?.getTracks().forEach((track) => track.stop())
     streamRef.current = null
+    setStream(null)
   }, [])
 
   const start = useCallback(
@@ -50,34 +62,21 @@ export function useCamera(): CameraState {
       setError('')
 
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: { ideal: nextFacing },
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
-          },
+        // Asking for the bare minimum keeps this working on cheap devices and
+        // avoids OverconstrainedError when a camera cannot hit the ideal sizes.
+        const next = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: nextFacing } },
           audio: false,
         })
-        streamRef.current = stream
+        streamRef.current = next
+        setStream(next)
 
-        const video = videoRef.current
-        if (video) {
-          video.srcObject = stream
-          try {
-            await video.play()
-          } catch {
-            /* Autoplay can still be refused; the stream stays attached. */
-          }
-        }
-
-        const track = stream.getVideoTracks()[0]
-        const settings = track?.getSettings?.()
-        setHasMultiple(track ? track.getCapabilities?.().facingMode?.length !== 1 : false)
+        const settings = next.getVideoTracks()[0]?.getSettings?.()
         setFacing((settings?.facingMode as 'environment' | 'user' | undefined) ?? nextFacing)
         setStatus('live')
       } catch (cause) {
         const name = cause instanceof DOMException ? cause.name : ''
-        setError(MESSAGES[name] ?? 'The camera could not be started.')
+        setError(describe(cause))
         setStatus(name === 'NotAllowedError' || name === 'SecurityError' ? 'denied' : 'error')
       }
     },
@@ -90,15 +89,26 @@ export function useCamera(): CameraState {
 
   useEffect(() => {
     if (!navigator.mediaDevices?.enumerateDevices) return
+    let cancelled = false
     navigator.mediaDevices
       .enumerateDevices()
       .then((devices) => {
-        setHasMultiple(devices.filter((device) => device.kind === 'videoinput').length > 1)
+        if (!cancelled) {
+          setHasMultiple(devices.filter((device) => device.kind === 'videoinput').length > 1)
+        }
       })
       .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
   }, [status])
 
-  useEffect(() => stop, [stop])
+  useEffect(() => {
+    const active = streamRef.current
+    return () => {
+      active?.getTracks().forEach((track) => track.stop())
+    }
+  }, [])
 
-  return { status, error, facing, hasMultiple, start, flip }
+  return { status, error, facing, hasMultiple, stream, start, flip }
 }
