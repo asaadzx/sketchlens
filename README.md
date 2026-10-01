@@ -1,32 +1,100 @@
-# React + TypeScript + Vite
+# SketchLens
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Trace art on a real wall through your phone camera.
 
-Currently, two official plugins are available:
+Open the link, grant camera access, drop an image over the view, line it up against the wall
+until it looks right, then lock it and trace the outline. No account, no install, no native app.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+![Stack](https://img.shields.io/badge/React_19-Vite-informational) ![Stack](https://img.shields.io/badge/Tailwind_4-38bdf8)
 
-## React Compiler
+## Try it
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+[sketchlens.app](https://sketchlens.app) — add to home screen on Android, or via Share → Add to
+Home Screen on iOS.
 
-## Expanding the Oxlint configuration
+## How it works
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+There is no plane detection here, and that is a deliberate choice. Reliable AR wall tracking on a
+phone browser needs WebXR plus sensor fusion that the web platform still does not expose. So
+SketchLens does the honest version: it composites an image over the live camera feed and lets you
+align it by eye.
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+That solves the actual problem — *what will this look like on the wall before I paint it?* — without
+pretending to be SLAM.
+
+1. Open the camera
+2. Search, paste a link, or upload an image
+3. Drag to move, pinch to size, twist to angle
+4. Drop the opacity until the line reads without the photo fighting you
+5. Lock it, enter trace mode, and trace on the plaster
+6. Optionally snap a reference photo or copy a share link
+
+## Gestures
+
+| Gesture | Desktop |
+| --- | --- |
+| Move | drag |
+| Scale | scroll |
+| Rotate | shift + scroll |
+| Nudge rotate | the 5° button |
+| Reset | the reset button |
+
+Everything is pointer events, so touch, mouse and stylus share one code path. Pinch and rotate are
+anchored at the gesture centroid, which means the artwork stays pinned between your fingers
+instead of orbiting away from them. Lifting one finger of a two-finger gesture re-anchors on the
+remaining one rather than jumping.
+
+## Share links
+
+A share link encodes the whole setup, so the person receiving it sees the same image at the same
+apparent size and angle:
+
+```
+?img=<url>&w=<px>&h=<px>&x=<0..1>&y=<0..1>&size=<0..1>&rot=<deg>&op=<0..1>
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Size is stored as a fraction of the viewport's shorter edge rather than in pixels, so a link made on
+a phone lands at the same relative size on a laptop. No backend is involved: the only thing needed
+is a public image URL.
+
+Uploaded images use `blob:` URLs and cannot be shared in v1. That is a real limitation, not an
+oversight — hosting them would mean a backend, and base64-in-URL does not survive contact with a
+real image.
+
+## Images
+
+Search runs through [Openverse](https://openverse.org/), filtered to licences that allow
+commercial use and modification. It needs no API key, unlike Unsplash, and it serves CORS headers
+so results can be drawn onto a canvas for the photo capture.
+
+Credit is displayed on screen and travels in the share link.
+
+## Tech
+
+React 19, Vite 8, Tailwind CSS 4, Lucide icons, TypeScript. Camera via plain
+`getUserMedia`, gestures hand-written on pointer events, PWA via `vite-plugin-pwa`.
+
+```
+npm install
+npm run dev        # dev server (HTTPS or localhost for camera)
+npm run build      # typecheck + production build
+npm run lint       # oxlint
+npm run preview
+```
+
+## Privacy
+
+Camera frames never leave the device. The app has no backend, no analytics and no accounts.
+Search queries go to Openverse; everything else stays local.
+
+## Honest limits
+
+- No wall detection. The overlay moves with the phone, so keep still or prop the phone up.
+- No physical calibration. Scale is judged by eye. Drop a sheet of A4 on the wall and line up
+  against that if you need an exact size.
+- Share links need a public image URL, so uploads are excluded.
+- One image at a time, no layers.
+
+## Licence
+
+MIT.
